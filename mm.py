@@ -21,7 +21,7 @@ def calculate_transition_probabilities(model):
         probabilities[char] = {next_char: count / total for next_char, count in transitions.items()}
     return probabilities
 
-def generate_text(probabilities, start_char, length=20):
+def generate_text(probabilities, start_char, length=14):
     result = start_char
     current_char = start_char
     for _ in range(length - 1):
@@ -70,7 +70,7 @@ print("\nテキスト生成と読み上げを開始します。プログラム�
 try:
     while True:
         # テキスト生成
-        start_char = random.choice(list(probabilities.keys()))  # ランダムな開始文字を選択
+        start_char = 'し'  # 開始文字を'し'に設定
         generated_text = generate_text(probabilities, start_char)
         print(f"\n生成されたテキスト: {generated_text}")
 
@@ -79,7 +79,7 @@ try:
         text_to_speech(generated_text)
 
         # 次の生成までの待機時間
-        time.sleep(1)  # 5秒待機
+        # time.sleep(1)  # 5秒待機
 
 except KeyboardInterrupt:
     print("\nプログラムを終了します。")
