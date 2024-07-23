@@ -1,0 +1,117 @@
+# 自動テキスト生成と読み上げプログラム
+
+このプログラムは、固定された入力テキスト "しかのこのこのここしたんたん" を基にマルコフモデルを使用してテキストを生成し、自動的に読み上げを行います。ユーザーの入力を待たずに無限ループで動作します。
+
+## 使用方法
+
+1. このコードを実行します。
+2. マルコフモデルの遷移確率が表示された後、自動的にテキスト生成と読み上げのループが始まります。
+3. プログラムを終了したい場合は、Ctrl+C を押してください。
+
+## 前提条件
+
+- インターネット接続（Google Text-to-Speechを使用するため）。
+- Pythonの環境（必要なライブラリ: `collections`, `random`, `gtts`, `os`, `platform`, `subprocess`, `time`）。
+
+## プログラムの説明
+
+### マルコフモデルの作成
+
+```python
+def create_markov_model(text):
+    model = defaultdict(lambda: defaultdict(int))
+    for i in range(len(text) - 1):
+        current_char = text[i]
+        next_char = text[i + 1]
+        model[current_char][next_char] += 1
+    return model
+```
+
+### 遷移確率の計算
+
+```python
+def calculate_transition_probabilities(model):
+    probabilities = {}
+    for char, transitions in model.items():
+        total = sum(transitions.values())
+        probabilities[char] = {next_char: count / total for next_char, count in transitions.items()}
+    return probabilities
+```
+
+### テキスト生成
+
+```python
+def generate_text(probabilities, start_char, length=20):
+    result = start_char
+    current_char = start_char
+    for _ in range(length - 1):
+        if current_char in probabilities:
+            next_char = random.choices(list(probabilities[current_char].keys()),
+                                       weights=list(probabilities[current_char].values()))[0]
+            result += next_char
+            current_char = next_char
+        else:
+            break
+    return result
+```
+
+### テキスト読み上げ
+
+```python
+def text_to_speech(text, lang='ja'):
+    filename = f"output_{len(text)}.mp3"
+    tts = gTTS(text=text, lang=lang)
+    tts.save(filename)
+    print(f"音声ファイルを {filename} として保存しました。")
+    
+    if platform.system() == 'Darwin':  # MacOS
+        print(f"afplay {filename} コマンドを実行します。")
+        subprocess.run(["afplay", filename])
+    else:
+        print("MacOS以外のシステムでは、保存された音声ファイルを手動で再生してください。")
+    
+    os.remove(filename)
+    print(f"音声ファイル {filename} を削除しました。")
+```
+
+### メインループ
+
+```python
+text = "しかのこのこのここしたんたん"
+
+model = create_markov_model(text)
+probabilities = calculate_transition_probabilities(model)
+
+print("マルコフモデルに基づく遷移確率:")
+for char, transitions in probabilities.items():
+    print(f"遷移元: '{char}'")
+    for next_char, prob in transitions.items():
+        print(f"  → '{next_char}': {prob:.2f}")
+    print()
+
+print("\nテキスト生成と読み上げを開始します。プログラムを終了するには Ctrl+C を押してください。")
+
+try:
+    while True:
+        start_char = random.choice(list(probabilities.keys()))  # ランダムな開始文字を選択
+        generated_text = generate_text(probabilities, start_char)
+        print(f"\n生成されたテキスト: {generated_text}")
+
+        print("生成されたテキストを読み上げています...")
+        text_to_speech(generated_text)
+
+        time.sleep(5)  # 5秒待機
+
+except KeyboardInterrupt:
+    print("\nプログラムを終了します。")
+
+print("プログラムが終了しました。")
+```
+
+## 注意点
+
+- このプログラムは終了するまで自動的に動作し続けます。
+- 音声ファイルは一時的に作成され、再生後に削除されます。
+- 音声出力の問題が解決されない場合は、音声ファイルが正しく作成されているか、そして `afplay` コマンドが正常に動作しているかを確認してください。
+
+何か問題があれば、お知らせください。
