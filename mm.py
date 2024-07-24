@@ -5,6 +5,7 @@ from gtts import gTTS
 import io
 import time
 import base64
+from gtts.tts import gTTSError
 
 def create_markov_model(text):
     model = defaultdict(lambda: defaultdict(int))
@@ -35,13 +36,21 @@ def generate_text(probabilities, start_char, length=14):
     return result
 
 def text_to_speech(text, lang='ja'):
-    tts = gTTS(text=text, lang=lang)
-    fp = io.BytesIO()
-    tts.write_to_fp(fp)
-    fp.seek(0)
-    return fp
+    if not text:
+        return None
+    try:
+        tts = gTTS(text=text, lang=lang)
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        return fp
+    except gTTSError as e:
+        st.error(f"音声の生成中にエラーが発生しました: {str(e)}")
+        return None
 
 def autoplay_audio(file):
+    if file is None:
+        return
     audio_base64 = base64.b64encode(file.getvalue()).decode()
     audio_tag = f'<audio autoplay="true" src="data:audio/mp3;base64,{audio_base64}">'
     st.markdown(audio_tag, unsafe_allow_html=True)
@@ -91,9 +100,11 @@ if st.session_state.running:
     text_area.write(f"生成されたテキスト: {st.session_state.generated_text}")
     
     audio_fp = text_to_speech(st.session_state.generated_text)
-    st.session_state.audio = audio_fp
-    
-    autoplay_audio(st.session_state.audio)
+    if audio_fp:
+        st.session_state.audio = audio_fp
+        autoplay_audio(st.session_state.audio)
+    else:
+        st.warning("音声を生成できませんでした。テキストのみ表示します。")
     
     time.sleep(interval)
     st.experimental_rerun()
