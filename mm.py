@@ -1,10 +1,10 @@
+import streamlit as st
 from collections import defaultdict
 import random
 from gtts import gTTS
-import os
-import platform
-import subprocess
+import io
 import time
+import base64
 
 def create_markov_model(text):
     model = defaultdict(lambda: defaultdict(int))
@@ -35,22 +35,21 @@ def generate_text(probabilities, start_char, length=14):
     return result
 
 def text_to_speech(text, lang='ja'):
-    filename = f"output_{len(text)}.mp3"
     tts = gTTS(text=text, lang=lang)
-    tts.save(filename)
-    print(f"音声ファイルを {filename} として保存しました。")
-    
-    if platform.system() == 'Darwin':  # MacOS
-        print(f"afplay {filename} コマンドを実行します。")
-        subprocess.run(["afplay", filename])
-    else:
-        print("MacOS以外のシステムでは、保存された音声ファイルを手動で再生してください。")
-    
-    os.remove(filename)
-    print(f"音声ファイル {filename} を削除しました。")
+    fp = io.BytesIO()
+    tts.write_to_fp(fp)
+    fp.seek(0)
+    return fp
+
+def autoplay_audio(file):
+    audio_base64 = base64.b64encode(file.getvalue()).decode()
+    audio_tag = f'<audio autoplay="true" src="data:audio/mp3;base64,{audio_base64}">'
+    st.markdown(audio_tag, unsafe_allow_html=True)
+
+st.title("マルコフ連鎖テキスト生成器")
 
 # 入力テキスト
-text = "しかのこのこのここしたんたん"
+text = st.text_input("入力テキスト", value="しかのこのこのここしたんたん")
 
 # マルコフモデルの作成
 model = create_markov_model(text)
@@ -58,30 +57,47 @@ model = create_markov_model(text)
 # 遷移確率の計算
 probabilities = calculate_transition_probabilities(model)
 
-print("マルコフモデルに基づく遷移確率:")
-for char, transitions in probabilities.items():
-    print(f"遷移元: '{char}'")
-    for next_char, prob in transitions.items():
-        print(f"  → '{next_char}': {prob:.2f}")
-    print()
+if st.checkbox("遷移確率を表示"):
+    st.subheader("マルコフモデルに基づく遷移確率:")
+    for char, transitions in probabilities.items():
+        st.write(f"遷移元: '{char}'")
+        for next_char, prob in transitions.items():
+            st.write(f"  → '{next_char}': {prob:.2f}")
+        st.write()
 
-print("\nテキスト生成と読み上げを開始します。プログラムを終了するには Ctrl+C を押してください。")
+start_char = st.text_input("開始文字", value="し")
 
-try:
-    while True:
-        # テキスト生成
-        start_char = 'し'  # 開始文字を'し'に設定
-        generated_text = generate_text(probabilities, start_char)
-        print(f"\n生成されたテキスト: {generated_text}")
+# セッション状態の初期化
+if 'running' not in st.session_state:
+    st.session_state.running = False
+if 'generated_text' not in st.session_state:
+    st.session_state.generated_text = ""
+if 'audio' not in st.session_state:
+    st.session_state.audio = None
 
-        # 生成されたテキストを読み上げ
-        print("生成されたテキストを読み上げています...")
-        text_to_speech(generated_text)
+# 開始/停止ボタン
+if st.button("開始" if not st.session_state.running else "停止"):
+    st.session_state.running = not st.session_state.running
 
-        # 次の生成までの待機時間
-        # time.sleep(1)  # 5秒待機
+# 生成と再生の間隔（秒）
+interval = st.slider("生成間隔（秒）", 1, 10, 5)
 
-except KeyboardInterrupt:
-    print("\nプログラムを終了します。")
+# テキスト生成と音声再生の領域
+text_area = st.empty()
 
-print("プログラムが終了しました。")
+# 自動生成と再生
+if st.session_state.running:
+    st.session_state.generated_text = generate_text(probabilities, start_char)
+    text_area.write(f"生成されたテキスト: {st.session_state.generated_text}")
+    
+    audio_fp = text_to_speech(st.session_state.generated_text)
+    st.session_state.audio = audio_fp
+    
+    autoplay_audio(st.session_state.audio)
+    
+    time.sleep(interval)
+    st.experimental_rerun()
+
+# 停止時も最後に生成されたテキストを表示
+elif st.session_state.generated_text:
+    text_area.write(f"最後に生成されたテキスト: {st.session_state.generated_text}")
