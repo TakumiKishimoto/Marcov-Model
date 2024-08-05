@@ -1,117 +1,55 @@
-# 自動テキスト生成と読み上げプログラム
+# マルコフ連鎖テキスト生成器
 
-このプログラムは、固定された入力テキスト "しかのこのこのここしたんたん" を基にマルコフモデルを使用してテキストを生成し、自動的に読み上げを行います。ユーザーの入力を待たずに無限ループで動作します。
+このプロジェクトは、Streamlitを使用して実装されたマルコフ連鎖に基づくテキスト生成器です。ユーザーが入力したテキストからマルコフモデルを作成し、ランダムに生成されたテキストを音声で読み上げます。
 
-## 使用方法
+## 機能
 
-1. このコードを実行します。
-2. マルコフモデルの遷移確率が表示された後、自動的にテキスト生成と読み上げのループが始まります。
-3. プログラムを終了したい場合は、Ctrl+C を押してください。
+- ユーザーが入力したテキストに基づいてマルコフモデルを作成
+- 作成されたマルコフモデルに基づいてテキストを生成
+- 生成されたテキストを音声として読み上げ
 
-## 前提条件
+## インストール
 
-- インターネット接続（Google Text-to-Speechを使用するため）。
-- Pythonの環境（必要なライブラリ: `collections`, `random`, `gtts`, `os`, `platform`, `subprocess`, `time`）。
+以下の手順に従ってプロジェクトをセットアップしてください。
 
-## プログラムの説明
+1. リポジトリをクローンします：
 
-### マルコフモデルの作成
+   ```bash
+   git clone https://github.com/yourusername/marcov-model
+   cd marcov-model
+   ```
 
-```python
-def create_markov_model(text):
-    model = defaultdict(lambda: defaultdict(int))
-    for i in range(len(text) - 1):
-        current_char = text[i]
-        next_char = text[i + 1]
-        model[current_char][next_char] += 1
-    return model
-```
+2. 必要なPythonパッケージをインストールします：
 
-### 遷移確率の計算
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```python
-def calculate_transition_probabilities(model):
-    probabilities = {}
-    for char, transitions in model.items():
-        total = sum(transitions.values())
-        probabilities[char] = {next_char: count / total for next_char, count in transitions.items()}
-    return probabilities
-```
+3. Streamlitアプリケーションを起動します：
 
-### テキスト生成
+   ```bash
+   streamlit run mm.py
+   ```
 
-```python
-def generate_text(probabilities, start_char, length=20):
-    result = start_char
-    current_char = start_char
-    for _ in range(length - 1):
-        if current_char in probabilities:
-            next_char = random.choices(list(probabilities[current_char].keys()),
-                                       weights=list(probabilities[current_char].values()))[0]
-            result += next_char
-            current_char = next_char
-        else:
-            break
-    return result
-```
+## 使い方
 
-### テキスト読み上げ
+1. `入力テキスト`フィールドにマルコフモデルの基となるテキストを入力します。デフォルトでは「しかのこのこのここしたんたん」が設定されています。
+2. オプションで、`開始文字`フィールドに生成されたテキストの開始文字を入力します。デフォルトでは「し」が設定されています。
+3. `テキスト生成`ボタンをクリックして、テキストの生成と音声の読み上げを行います。
+4. 生成されたテキストが画面に表示され、音声としても再生されます。
+5. `遷移確率を表示`チェックボックスをオンにすると、マルコフモデルに基づく遷移確率が表示されます。
 
-```python
-def text_to_speech(text, lang='ja'):
-    filename = f"output_{len(text)}.mp3"
-    tts = gTTS(text=text, lang=lang)
-    tts.save(filename)
-    print(f"音声ファイルを {filename} として保存しました。")
-    
-    if platform.system() == 'Darwin':  # MacOS
-        print(f"afplay {filename} コマンドを実行します。")
-        subprocess.run(["afplay", filename])
-    else:
-        print("MacOS以外のシステムでは、保存された音声ファイルを手動で再生してください。")
-    
-    os.remove(filename)
-    print(f"音声ファイル {filename} を削除しました。")
-```
+## ファイル構成
 
-### メインループ
+- `mm.py`: Streamlitアプリケーションのメインスクリプト
+- `requirements.txt`: 必要なPythonパッケージのリスト
 
-```python
-text = "しかのこのこのここしたんたん"
+## 必要なパッケージ
 
-model = create_markov_model(text)
-probabilities = calculate_transition_probabilities(model)
+- `streamlit`
+- `gtts`
 
-print("マルコフモデルに基づく遷移確率:")
-for char, transitions in probabilities.items():
-    print(f"遷移元: '{char}'")
-    for next_char, prob in transitions.items():
-        print(f"  → '{next_char}': {prob:.2f}")
-    print()
+## 注意事項
 
-print("\nテキスト生成と読み上げを開始します。プログラムを終了するには Ctrl+C を押してください。")
+- このアプリケーションはインターネット接続が必要です。`gTTS`（Google Text-to-Speech）を使用して音声を生成するため、インターネットに接続されていないと音声の生成ができません。
 
-try:
-    while True:
-        start_char = random.choice(list(probabilities.keys()))  # ランダムな開始文字を選択
-        generated_text = generate_text(probabilities, start_char)
-        print(f"\n生成されたテキスト: {generated_text}")
-
-        print("生成されたテキストを読み上げています...")
-        text_to_speech(generated_text)
-
-        time.sleep(5)  # 5秒待機
-
-except KeyboardInterrupt:
-    print("\nプログラムを終了します。")
-
-print("プログラムが終了しました。")
-```
-
-## 注意点
-
-- このプログラムは終了するまで自動的に動作し続けます。
-- 音声ファイルは一時的に作成され、再生後に削除されます。
-- 音声出力の問題が解決されない場合は、音声ファイルが正しく作成されているか、そして `afplay` コマンドが正常に動作しているかを確認してください。
-
-何か問題があれば、お知らせください。
